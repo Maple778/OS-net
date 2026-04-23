@@ -1,0 +1,20 @@
+# Shell scripts
+*.sh
+
+# Compiled executables
+node
+printer
+hacker
+smart_hacker
+create_msq
+remove_msq
+
+# Markdown files
+*.md
+
+# Log files
+*.log
+
+# Other generated files
+*.o
+.claude/
