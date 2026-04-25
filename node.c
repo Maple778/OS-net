@@ -81,14 +81,7 @@ int main(int argc, char *argv[]) {
     // Parse command line arguments
     me = atoi(argv[1]);
     N = atoi(argv[2]);
-    key_t key = atoi(argv[3]);
-
-    // Get or create message queue
-    msqid = msgget(key, 0666 | IPC_CREAT);
-    if (msqid == -1) {
-        perror("msgget");
-        exit(1);
-    }
+    msqid = atoi(argv[3]);
 
     start_wait_time = atoi(argv[4]);
     repeat_wait_time = atoi(argv[5]);

@@ -17,4 +17,4 @@ remove_msq
 
 # Other generated files
 *.o
-.claude/
+.claude/*.log
