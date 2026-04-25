@@ -17,17 +17,13 @@ struct msgbuf {
 };
 
 int main(int argc, char *argv[]) {
-    if (argc != 2) {
-        fprintf(stderr, "Usage: %s message-queue-id\n", argv[0]);
+    if (argc != 3) {
+        fprintf(stderr, "Usage: %s num-nodes message-queue-id\n", argv[0]);
         exit(1);
     }
 
-    key_t key = atoi(argv[1]);
-    int msqid = msgget(key, 0);
-    if (msqid == -1) {
-        perror("msgget hacker");
-        exit(1);
-    }
+    int num_nodes = atoi(argv[1]);
+    int msqid = atoi(argv[2]);
 
     struct msgbuf msg;
     uint32_t *message_info;
@@ -39,12 +35,13 @@ int main(int argc, char *argv[]) {
     srand(time(NULL));
 
     while (1) {
-        // Randomly choose a node to impersonate
-        int fake_node = (rand() % MAX_NODES) + 1;
+        // Randomly choose a node to impersonate (valid range)
+        int fake_node = (rand() % num_nodes) + 1;
+        int target_node = (rand() % num_nodes) + 1;
         int fake_request = rand() % 1000;
 
         // Send fake REQUEST message
-        msg.mtype = rand() % MAX_NODES + 1;  // Random recipient
+        msg.mtype = target_node;  // Target a valid node
         message_info = (uint32_t *)msg.mtext;
         message_info[0] = 0;  // REQUEST
         message_info[1] = fake_node;  // Fake sender
