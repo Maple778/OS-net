@@ -32,6 +32,7 @@ struct shared_vars {
     int highest_request_number;  /* highest request number seen */
     int outstanding_reply;       /* # of outstanding replies */
     int request_CS;              /* true when node requests critical section */
+    int in_CS;                   /* true when node is inside critical section */
     int reply_deferred[MAX_NODES]; /* reply_deferred[i] is true when node defers reply to node i */
     int message_count;           /* number of messages sent */
 };
@@ -120,6 +121,7 @@ int main(int argc, char *argv[]) {
     shared->highest_request_number = 0;
     shared->outstanding_reply = 0;
     shared->request_CS = 0;
+    shared->in_CS = 0;
     shared->message_count = 0;
 
     for (int i = 0; i < MAX_NODES; i++) {
@@ -222,12 +224,23 @@ void receive_request(int sender, int req_num) {
     }
 
     P(mutex_sem);
-        defer_it = (shared->request_CS) &&
-                   ((req_num > shared->request_number) ||
-                    (req_num == shared->request_number && sender > me));
+
+    // Agerwala's three-state logic:
+    // 1. In critical section: always defer
+    // 2. Waiting for replies: defer only if we have priority
+    // 3. Idle: never defer
+    if (shared->in_CS) {
+        defer_it = 1;
+    } else if (shared->request_CS) {
+        defer_it = (req_num > shared->request_number) ||
+                   (req_num == shared->request_number && sender > me);
+    } else {
+        defer_it = 0;
+    }
+
     V(mutex_sem);
 
-    /* defer_it is true if we have priority */
+    /* defer_it is true if we should defer the reply */
     if (defer_it) {
         P(mutex_sem);
             shared->reply_deferred[sender] = 1;
@@ -272,30 +285,25 @@ void enter_critical_section() {
             P(wait_sem);
         }
 
-        // Enter critical section - print START
+        // Enter critical section
+        P(mutex_sem);
+            shared->in_CS = 1;
+        V(mutex_sem);
+
+        // Format and send complete message
         time_t now = time(NULL);
         struct tm *tm_info = localtime(&now);
         char time_str[9];
         char buffer[1024];
         strftime(time_str, sizeof(time_str), "%H:%M:%S", tm_info);
 
-        // Format and send START
-        sprintf(buffer, "************ CLIENT %d START ************\n", me);
-        send_to_printer(buffer);
-
-        // Simulate critical section work
-        usleep(100000);  // 100ms
-
-        // Format and send MESSAGE
-        sprintf(buffer, "CLIENT %d MESSAGE NUMBER %d: Geng Li %s\n", me, shared->message_count, time_str);
-        send_to_printer(buffer);
-
-        // Format and send END
-        sprintf(buffer, "************ CLIENT %d END **************\n", me);
+        sprintf(buffer, "************ CLIENT %d START ************\nCLIENT %d MESSAGE NUMBER %d: Geng Li %s\n************ CLIENT %d END **************\n",
+                me, me, shared->message_count, time_str, me);
         send_to_printer(buffer);
 
         // Exit critical section
         P(mutex_sem);
+            shared->in_CS = 0;
             shared->request_CS = 0;
         V(mutex_sem);
 
